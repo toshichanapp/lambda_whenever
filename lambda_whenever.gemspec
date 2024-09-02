@@ -5,15 +5,15 @@ require_relative "lib/lambda_whenever/version"
 Gem::Specification.new do |spec|
   spec.name = "lambda_whenever"
   spec.version = LambdaWhenever::VERSION
-  spec.authors = ["TODO: Write your name"]
-  spec.email = ["TODO: Write your email address"]
+  spec.authors = ['toshichanapp']
+  spec.email = ['toshichanapp@gmail.com']
 
   spec.summary = 'whenever for Amazon EventBridge Scheduler.'
   spec.description = 'whenever for Amazon EventBridge Scheduler.'
   spec.homepage = "https://github.com/toshichanapp/lambda_whenever"
   spec.required_ruby_version = ">= 3.0.0"
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
+  # spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/toshichanapp/lambda_whenever"
