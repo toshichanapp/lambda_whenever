@@ -5,11 +5,11 @@ require_relative "lib/lambda_whenever/version"
 Gem::Specification.new do |spec|
   spec.name = "lambda_whenever"
   spec.version = LambdaWhenever::VERSION
-  spec.authors = ['toshichanapp']
-  spec.email = ['toshichanapp@gmail.com']
+  spec.authors = ["toshichanapp"]
+  spec.email = ["toshichanapp@gmail.com"]
 
-  spec.summary = 'whenever for Amazon EventBridge Scheduler.'
-  spec.description = 'whenever for Amazon EventBridge Scheduler.'
+  spec.summary = "whenever for Amazon EventBridge Scheduler."
+  spec.description = "whenever for Amazon EventBridge Scheduler."
   spec.homepage = "https://github.com/toshichanapp/lambda_whenever"
   spec.required_ruby_version = ">= 3.0.0"
 
@@ -37,4 +37,18 @@ Gem::Specification.new do |spec|
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
+
+  spec.add_development_dependency "rake", "~> 13.0"
+  spec.add_development_dependency "rspec", "~> 3.0"
+  spec.add_development_dependency "rubocop", "~> 1.21"
+  spec.add_development_dependency "simplecov", "~> 0.21"
+
+  spec.add_dependency "aws-sdk-iam", "~> 1.0"
+  spec.add_dependency "aws-sdk-lambda", "~> 1.0"
+  spec.add_dependency "aws-sdk-scheduler", "~> 1.0"
+  spec.add_dependency "base64", "~> 0.2"
+  spec.add_dependency "bigdecimal", "~> 3.1"
+  spec.add_dependency "chronic", "~> 0.10"
+  spec.add_dependency "retryable", "~> 3.0"
+  spec.add_dependency "rexml", ">= 0"
 end
