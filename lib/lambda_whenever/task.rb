@@ -2,7 +2,7 @@
 
 module LambdaWhenever
   class Task
-    attr_reader :commands, :expression
+    attr_reader :commands, :expression, :name
 
     def initialize(environment, verbose, bundle_command, expression)
       @environment = environment
@@ -10,6 +10,7 @@ module LambdaWhenever
       @bundle_command = bundle_command.split(" ")
       @expression = expression
       @commands = []
+      @name = ""
     end
 
     def command(task)
@@ -17,14 +18,17 @@ module LambdaWhenever
     end
 
     def rake(task)
+      @name = task
       @commands << [@bundle_command, "rake", task, @verbose_mode].flatten.compact
     end
 
     def runner(src)
+      @name = src
       @commands << [@bundle_command, "rails", "runner", "-e", @environment, src].flatten
     end
 
     def script(script)
+      @name = script
       @commands << [@bundle_command, "script/#{script}"].flatten
     end
 
