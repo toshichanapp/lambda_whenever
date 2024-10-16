@@ -49,7 +49,8 @@ module LambdaWhenever
     end
 
     def schedule_name(task, option)
-      Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-")).to_s[0, 64]
+      input = "#{task.name}-#{Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))}"
+      sanitize_and_trim(input)
     end
 
     def schedule_description(task)
@@ -66,6 +67,14 @@ module LambdaWhenever
       end
     rescue Aws::Scheduler::Errors::ResourceNotFoundException
       puts "Schedule group '#{schedule_group}' does not exist."
+    end
+
+    private
+
+    def sanitize_and_trim(input)
+      sanitized = input.gsub(/[^a-zA-Z0-9\-._]/, "_")
+
+      sanitized[0, 64]
     end
   end
 end
