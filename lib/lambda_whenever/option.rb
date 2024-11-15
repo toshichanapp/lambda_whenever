@@ -10,6 +10,7 @@ module LambdaWhenever
     CLEAR_MODE = 3
     LIST_MODE = 4
     PRINT_VERSION_MODE = 5
+    SYNC_MODE = 6
 
     attr_reader :mode, :verbose, :variables, :schedule_file, :iam_role, :rule_state,
                 :lambda_name, :scheduler_group
@@ -31,8 +32,11 @@ module LambdaWhenever
         opts.on("--dryrun", "dry-run") do
           @mode = DRYRUN_MODE
         end
-        opts.on("--update", "Creates and deletes tasks as needed by schedule file") do
+        opts.on("--update", "clear and create schedules") do
           @mode = UPDATE_MODE
+        end
+        opts.on("--sync", "Creates and deletes tasks as needed by schedule file") do
+          @mode = SYNC_MODE
         end
         opts.on("-c", "--clear", "Clear scheduled tasks") do
           @mode = CLEAR_MODE

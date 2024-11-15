@@ -26,6 +26,12 @@ module LambdaWhenever
           update_eb_schedules
         end
         Logger.instance.log("write", "scheduled tasks updated")
+      when Option::SYNC_MODE
+        option.validate!
+        with_concurrent_modification_handling do
+          sync_eb_schedules
+        end
+        Logger.instance.log("write", "scheduled tasks updated")
       when Option::CLEAR_MODE
         with_concurrent_modification_handling do
           clear_tasks
@@ -66,6 +72,26 @@ module LambdaWhenever
 
         scheduler.create_schedule(target, option)
       end
+    end
+
+    def sync_eb_schedules
+      schedule = Schedule.new(option.schedule_file, option.verbose, option.variables)
+      scheduler = EventBridgeScheduler.new(option.scheduler_client, schedule.timezone)
+
+      scheduler.create_schedule_group(option.scheduler_group)
+
+      current_schedules = scheduler.list_schedules(option.scheduler_group)
+      lambda_arn = TargetLambda.fetch_arn(option.lambda_name, option.lambda_client)
+      desired_schedules = schedule.tasks.map do |task|
+        target = TargetLambda.new(arn: lambda_arn, task: task)
+        {
+          name: scheduler.schedule_name(task, option),
+          target: target,
+          task: task
+        }
+      end
+
+      scheduler.sync_schedules(desired_schedules, current_schedules, option)
     end
 
     def clear_tasks

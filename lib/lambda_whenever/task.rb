@@ -19,7 +19,7 @@ module LambdaWhenever
 
     def rake(task)
       @name = task
-      @commands << [@bundle_command, "rake", task, @verbose_mode].flatten.compact
+      @commands << [*@bundle_command, "rake", task, *@verbose_mode]
     end
 
     def runner(src)
