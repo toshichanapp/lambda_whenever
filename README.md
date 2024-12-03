@@ -103,6 +103,7 @@ The following policy grants the required permissions:
       "Action": [
         "scheduler:CreateScheduleGroup",
         "scheduler:ListSchedules",
+        "scheduler:GetSchedule",
         "scheduler:CreateSchedule",
         "scheduler:DeleteSchedule",
         "scheduler:UpdateSchedule",
