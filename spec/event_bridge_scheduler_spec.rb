@@ -217,6 +217,61 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
     end
   end
 
+  describe "#update_schedule" do
+    let(:option) do
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
+    end
+    let(:task) { double("Task", name: "my_task", expression: "cron(0 0 * * ? *)", commands: [%w[rake run]]) }
+    let(:target) { double("TargetLambda", task: task, arn: "arn:aws:lambda:us-east-1:123:function:test", input: "{}") }
+    let(:iam_role) { double("IamRole", arn: "arn:aws:iam::123:role/test") }
+
+    before do
+      allow(LambdaWhenever::IamRole).to receive(:new).and_return(iam_role)
+    end
+
+    context "when the API call succeeds" do
+      it "updates a schedule with correct parameters" do
+        expect(scheduler_client).to receive(:update_schedule).with(hash_including(
+                                                                     name: anything,
+                                                                     schedule_expression: "cron(0 0 * * ? *)",
+                                                                     schedule_expression_timezone: "UTC",
+                                                                     flexible_time_window: described_class::FLEXIBLE_TIME_WINDOW,
+                                                                     group_name: "test-group",
+                                                                     state: "ENABLED"
+                                                                   ))
+
+        scheduler.update_schedule(target, option)
+      end
+    end
+
+    context "when ValidationException is raised" do
+      it "logs the error and re-raises" do
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ValidationException.new(nil, "Invalid cron expression"))
+
+        expect(LambdaWhenever::Logger.instance).to receive(:fail)
+          .with(/Invalid schedule parameters.*Invalid cron expression/)
+
+        expect do
+          scheduler.update_schedule(target, option)
+        end.to raise_error(Aws::Scheduler::Errors::ValidationException)
+      end
+    end
+
+    context "when ConflictException is raised" do
+      it "does not catch the error (lets it bubble to CLI retry handler)" do
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "Concurrent modification"))
+
+        expect(LambdaWhenever::Logger.instance).not_to receive(:fail)
+
+        expect do
+          scheduler.update_schedule(target, option)
+        end.to raise_error(Aws::Scheduler::Errors::ConflictException)
+      end
+    end
+  end
+
   describe "#list_schedules" do
     context "with pagination" do
       it "retrieves all schedules across multiple pages" do
