@@ -6,6 +6,9 @@ module LambdaWhenever
   class Schedule
     attr_reader :tasks, :chronic_options, :bundle_command, :environment, :timezone
 
+    ALLOWED_SET_KEYS = %w[environment bundle_command chronic_options timezone].freeze
+    RESERVED_SET_KEYS = %w[tasks verbose].freeze
+
     class UnsupportedFrequencyException < StandardError; end
 
     using LambdaWhenever::WheneverNumeric
@@ -17,13 +20,22 @@ module LambdaWhenever
       @chronic_options = {}
       @bundle_command = "bundle exec"
 
+      validate_file!(file)
       variables.each { |var| set(var[:key], var[:value]) }
       instance_eval(File.read(file), file)
       @timezone ||= "UTC"
     end
 
     def set(key, value)
-      instance_variable_set("@#{key}", value) unless key == "tasks"
+      key = key.to_s
+      if RESERVED_SET_KEYS.include?(key)
+        Logger.instance.warn("Cannot overwrite reserved key '#{key}' via set")
+        return
+      end
+      unless ALLOWED_SET_KEYS.include?(key)
+        Logger.instance.warn("Setting non-standard key '#{key}'; consider using an ALLOWED key: #{ALLOWED_SET_KEYS.join(", ")}")
+      end
+      instance_variable_set("@#{key}", value)
     end
 
     def every(frequency, options = {}, &block)
@@ -131,8 +143,16 @@ module LambdaWhenever
 
     def print_tasks
       @tasks.each do |task|
-        puts "#{task.expression} { commands: #{task.commands} }"
+        Logger.instance.message("#{task.expression} { commands: #{task.commands} }")
       end
+    end
+
+    private
+
+    def validate_file!(file)
+      path = File.expand_path(file)
+      raise ArgumentError, "Schedule file does not exist: #{file}" unless File.exist?(path)
+      raise ArgumentError, "Schedule file must have .rb extension: #{file}" unless path.end_with?(".rb")
     end
 
     def method_missing(name, *_args)
