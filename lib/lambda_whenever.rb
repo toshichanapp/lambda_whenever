@@ -7,6 +7,7 @@ require "aws-sdk-lambda"
 require "chronic"
 require "singleton"
 require "json"
+require "digest"
 require "retryable"
 
 require "lambda_whenever/version"

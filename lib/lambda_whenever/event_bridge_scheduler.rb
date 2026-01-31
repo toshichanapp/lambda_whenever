@@ -26,7 +26,7 @@ module LambdaWhenever
     end
 
     def sync_schedules(desired_schedules, current_schedules, option)
-      desired_names = desired_schedules.map { |s| s[:name] }.to_set
+      desired_names = desired_schedules.to_set { |s| s[:name] }
       current_schedules_hash = current_schedules.to_h do |schedule|
         [schedule[:name], schedule]
       end

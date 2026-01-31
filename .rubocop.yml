@@ -1,8 +1,69 @@
 AllCops:
   TargetRubyVersion: 3.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "vendor/**/*"
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+Style/Documentation:
+  Enabled: false
+
+Style/RedundantArgument:
+  Enabled: false
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+Gemspec/RequireMFA:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "*.gemspec"
+    - "lib/lambda_whenever/option.rb"
+
+Metrics/MethodLength:
+  Exclude:
+    - "spec/**/*"
+    - "lib/lambda_whenever/cli.rb"
+    - "lib/lambda_whenever/event_bridge_scheduler.rb"
+    - "lib/lambda_whenever/schedule.rb"
+    - "lib/lambda_whenever/option.rb"
+
+Metrics/AbcSize:
+  Exclude:
+    - "lib/lambda_whenever/cli.rb"
+    - "lib/lambda_whenever/event_bridge_scheduler.rb"
+    - "lib/lambda_whenever/schedule.rb"
+    - "lib/lambda_whenever/option.rb"
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "lib/lambda_whenever/cli.rb"
+    - "lib/lambda_whenever/event_bridge_scheduler.rb"
+    - "lib/lambda_whenever/schedule.rb"
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - "lib/lambda_whenever/event_bridge_scheduler.rb"
+    - "lib/lambda_whenever/schedule.rb"
+
+Metrics/ClassLength:
+  Exclude:
+    - "lib/lambda_whenever/cli.rb"
+    - "lib/lambda_whenever/event_bridge_scheduler.rb"
+    - "lib/lambda_whenever/option.rb"
+    - "lib/lambda_whenever/schedule.rb"
+
+Layout/LineLength:
+  Max: 150
+  Exclude:
+    - "spec/**/*"
+    - "lib/lambda_whenever/cli.rb"

@@ -87,29 +87,29 @@ module LambdaWhenever
         [time.min.to_s, time.hour.to_s, "?", "*", "SUN,SAT", "*"]
       when :weekday
         [time.min.to_s, time.hour.to_s, "?", "*", "MON-FRI", "*"]
-      when 1.second...1.minute
+      when (1.second)...(1.minute)
         raise UnsupportedFrequencyException, "Time must be in minutes or higher. Ignore this task."
-      when 1.minute...1.hour
+      when (1.minute)...(1.hour)
         step = (frequency / 60).round
         min = []
         ((60 % step).zero? ? 0 : step).step(59, step) { |i| min << i }
         [min.join(","), "*", "*", "*", "?", "*"]
-      when 1.hour...1.day
+      when (1.hour)...(1.day)
         step = (frequency / 60 / 60).round
         hour = []
         ((24 % step).zero? ? 0 : step).step(23, step) { |i| hour << i }
         [time.min.to_s, hour.join(","), "*", "*", "?", "*"]
-      when 1.day...1.month
+      when (1.day)...(1.month)
         step = (frequency / 24 / 60 / 60).round
         day = []
         (step <= 16 ? 1 : step).step(30, step) { |i| day << i }
         [time.min.to_s, time.hour.to_s, day.join(","), "*", "?", "*"]
-      when 1.month...12.months
+      when (1.month)...(12.months)
         step = (frequency / 30 / 24 / 60 / 60).round
         month = []
         (step <= 6 ? 1 : step).step(12, step) { |i| month << i }
         [time.min.to_s, time.hour.to_s, time.day, month.join(","), "?", "*"]
-      when 12.months...Float::INFINITY
+      when (12.months)...Float::INFINITY
         raise UnsupportedFrequencyException, "Time must be in months or lower. Ignore this task."
       when %r{^((\*?[\d/,-]*)\s*){5}$}
         min, hour, day, mon, week, year = frequency.split(" ")

@@ -46,8 +46,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "aws-sdk-iam", "~> 1.0"
   spec.add_dependency "aws-sdk-lambda", "~> 1.0"
   spec.add_dependency "aws-sdk-scheduler", "~> 1.0"
-  spec.add_dependency "base64", "~> 0.2"
-  spec.add_dependency "bigdecimal", "~> 3.1"
   spec.add_dependency "chronic", "~> 0.10"
   spec.add_dependency "retryable", "~> 3.0"
   spec.add_dependency "rexml", ">= 0"
