@@ -11,7 +11,7 @@ module LambdaWhenever
     end
 
     def arn
-      role&.arn
+      @arn ||= role&.arn
     end
 
     def exists?

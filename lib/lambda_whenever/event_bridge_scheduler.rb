@@ -59,8 +59,7 @@ module LambdaWhenever
       Logger.instance.message("Updating #{to_update.length} schedules...")
       to_update.each do |desired|
         Logger.instance.message("Updating schedule: #{desired[:name]}")
-        delete_schedule(desired[:name], option.scheduler_group)
-        create_schedule(desired[:target], option)
+        update_schedule(desired[:target], option)
       end
     end
 
@@ -91,6 +90,28 @@ module LambdaWhenever
                                         })
     rescue Aws::Scheduler::Errors::ServiceError => e
       Logger.instance.fail("Failed to create schedule '#{name}': #{e.message}")
+      raise
+    end
+
+    def update_schedule(target, option)
+      task = target.task
+      name = schedule_name(task, option)
+      @scheduler_client.update_schedule({
+                                          name: name,
+                                          schedule_expression: task.expression,
+                                          schedule_expression_timezone: timezone,
+                                          flexible_time_window: FLEXIBLE_TIME_WINDOW,
+                                          target: {
+                                            arn: target.arn,
+                                            role_arn: IamRole.new(option).arn,
+                                            input: target.input
+                                          },
+                                          group_name: option.scheduler_group,
+                                          state: option.rule_state,
+                                          description: schedule_description(task)
+                                        })
+    rescue Aws::Scheduler::Errors::ServiceError => e
+      Logger.instance.fail("Failed to update schedule '#{name}': #{e.message}")
       raise
     end
 
