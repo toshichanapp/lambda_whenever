@@ -285,11 +285,11 @@ RSpec.describe LambdaWhenever::Schedule do
   end
 
   describe "#print_tasks" do
-    it "prints tasks via Logger" do
-      logger = LambdaWhenever::Logger.instance
-      expect(logger).to receive(:message).with('cron(0 3 * * ? *) { commands: [["bundle", "exec", "rails", "runner", "-e", "production", "Hoge.run"]] }')
-      expect(logger).to receive(:message).with('cron(0 0 1 * ? *) { commands: [["bundle", "exec", "rake", "hoge:run", "--silent"], ["bundle", "exec", "rails", "runner", "-e", "production", "Fuga.run"]] }')
-      schedule.print_tasks
+    it "prints tasks to stdout" do
+      expect { schedule.print_tasks }.to output(
+        "cron(0 3 * * ? *) { commands: [[\"bundle\", \"exec\", \"rails\", \"runner\", \"-e\", \"production\", \"Hoge.run\"]] }\n" \
+        "cron(0 0 1 * ? *) { commands: [[\"bundle\", \"exec\", \"rake\", \"hoge:run\", \"--silent\"], [\"bundle\", \"exec\", \"rails\", \"runner\", \"-e\", \"production\", \"Fuga.run\"]] }\n"
+      ).to_stdout
     end
   end
 
@@ -300,9 +300,9 @@ RSpec.describe LambdaWhenever::Schedule do
       expect(schedule.tasks).to eq(original_tasks)
     end
 
-    it "rejects reserved key 'verbose'" do
+    it "allows verbose to be set" do
       schedule.set("verbose", true)
-      expect(schedule.instance_variable_get(:@verbose)).to be false
+      expect(schedule.instance_variable_get(:@verbose)).to be true
     end
 
     it "warns about non-standard keys" do

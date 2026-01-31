@@ -6,8 +6,8 @@ module LambdaWhenever
   class Schedule
     attr_reader :tasks, :chronic_options, :bundle_command, :environment, :timezone
 
-    ALLOWED_SET_KEYS = %w[environment bundle_command chronic_options timezone].freeze
-    RESERVED_SET_KEYS = %w[tasks verbose].freeze
+    ALLOWED_SET_KEYS = %w[environment bundle_command chronic_options timezone verbose].freeze
+    RESERVED_SET_KEYS = %w[tasks].freeze
 
     class UnsupportedFrequencyException < StandardError; end
 
@@ -141,7 +141,7 @@ module LambdaWhenever
 
     def print_tasks
       @tasks.each do |task|
-        Logger.instance.message("#{task.expression} { commands: #{task.commands} }")
+        puts "#{task.expression} { commands: #{task.commands} }"
       end
     end
 
@@ -158,8 +158,8 @@ module LambdaWhenever
       Logger.instance.warn("Skipping unsupported method: #{name}")
     end
 
-    def respond_to_missing?(_name, _include_private = false)
-      true
+    def respond_to_missing?(name, include_private = false)
+      super
     end
   end
 end

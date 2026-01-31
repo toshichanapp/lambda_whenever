@@ -77,6 +77,8 @@ end
 
 The `@environment` variable defaults to `"production"`.
 
+> **Note:** `set :verbose, true` is applied when tasks are created, so it must appear before any `every` blocks you want it to affect.
+
 ## How It Works
 
 Lambda Whenever creates an EventBridge Scheduler schedule for each `every` block. Each schedule can have multiple commands.
