@@ -16,6 +16,11 @@ RSpec.describe LambdaWhenever::Task do
       task.command("hoge fuga bar:baz")
       expect(task.commands).to eq([%w[hoge fuga bar:baz]])
     end
+
+    it "handles quoted arguments with spaces" do
+      task.command("echo 'hello world' --flag")
+      expect(task.commands).to eq([["echo", "hello world", "--flag"]])
+    end
   end
 
   describe "#rake" do

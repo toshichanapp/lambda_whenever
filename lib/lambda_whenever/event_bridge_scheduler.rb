@@ -91,9 +91,15 @@ module LambdaWhenever
                                         })
     end
 
+    # SHA1 hex digest is 40 chars, separator is 1 char, so prefix max is 64 - 41 = 23 chars
+    SCHEDULE_NAME_MAX_LENGTH = 64
+    SHA1_HEX_LENGTH = 40
+    PREFIX_MAX_LENGTH = SCHEDULE_NAME_MAX_LENGTH - SHA1_HEX_LENGTH - 1
+
     def schedule_name(task, option)
-      input = "#{task.name}-#{Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))}"
-      sanitize_and_trim(input)
+      hash = Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))
+      prefix = sanitize(task.name)[0, PREFIX_MAX_LENGTH]
+      "#{prefix}-#{hash}"
     end
 
     def schedule_description(task)
@@ -109,9 +115,8 @@ module LambdaWhenever
 
     private
 
-    def sanitize_and_trim(input)
-      sanitized = input.gsub(/[^a-zA-Z0-9\-._]/, "_")
-      sanitized[0, 64]
+    def sanitize(input)
+      input.gsub(/[^a-zA-Z0-9\-._]/, "_")
     end
 
     def schedules_differ?(current, desired, option)

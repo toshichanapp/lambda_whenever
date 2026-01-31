@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "shellwords"
+
 module LambdaWhenever
   class Task
     attr_reader :commands, :expression, :name
@@ -7,14 +9,14 @@ module LambdaWhenever
     def initialize(environment, verbose, bundle_command, expression)
       @environment = environment
       @verbose_mode = verbose ? nil : "--silent"
-      @bundle_command = bundle_command.split(" ")
+      @bundle_command = Shellwords.split(bundle_command)
       @expression = expression
       @commands = []
       @name = ""
     end
 
     def command(task)
-      @commands << task.split(" ")
+      @commands << Shellwords.split(task)
     end
 
     def rake(task)
