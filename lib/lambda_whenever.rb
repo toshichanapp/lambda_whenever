@@ -8,6 +8,7 @@ require "chronic"
 require "singleton"
 require "json"
 require "digest"
+require "set"
 require "retryable"
 
 require "lambda_whenever/version"
