@@ -51,7 +51,7 @@ Usage: lambda_whenever [options]
 | List    | `-l, --list`      | Show all current schedules                                         |
 | Version | `-v, --version`   | Print gem version                                                  |
 
-> **Note:** `--update` removes all schedules before recreating them. If an error occurs mid-operation, some schedules may be missing. Use `--sync` for safer incremental updates.
+> **Note:** `--update` deletes all existing schedules first, then recreates them. If schedule creation fails mid-operation, you may end up with fewer schedules than expected. `--sync` performs intelligent diff-based updates, modifying only what has changed, but does not provide automatic rollback on failure.
 
 ### Setting Variables
 
