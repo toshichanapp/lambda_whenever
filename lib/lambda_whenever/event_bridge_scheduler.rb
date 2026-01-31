@@ -19,6 +19,7 @@ module LambdaWhenever
     def initialize(client, timezone = "UTC")
       @scheduler_client = client
       @timezone = timezone
+      @iam_roles = {}
     end
 
     # NOTE: Calls get_schedule per entry because the ListSchedules API does not return
@@ -165,7 +166,7 @@ module LambdaWhenever
                                       flexible_time_window: FLEXIBLE_TIME_WINDOW,
                                       target: {
                                         arn: target.arn,
-                                        role_arn: IamRole.new(option).arn,
+                                        role_arn: iam_role_arn(option),
                                         input: target.input
                                       },
                                       group_name: option.scheduler_group,
@@ -175,6 +176,11 @@ module LambdaWhenever
     rescue Aws::Scheduler::Errors::ValidationException => e
       Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
       raise
+    end
+
+    def iam_role_arn(option)
+      @iam_roles[option.iam_role] ||= IamRole.new(option)
+      @iam_roles[option.iam_role].arn
     end
 
     def delete_schedule(name, group_name)

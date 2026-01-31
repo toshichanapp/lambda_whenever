@@ -164,7 +164,7 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
   describe "#create_schedule" do
     let(:option) do
-      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED")
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
     end
     let(:task) { double("Task", name: "my_task", expression: "cron(0 0 * * ? *)", commands: [%w[rake run]]) }
     let(:target) { double("TargetLambda", task: task, arn: "arn:aws:lambda:us-east-1:123:function:test", input: "{}") }
@@ -293,7 +293,7 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
   describe "#sync_schedules" do
     let(:option) do
-      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED")
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
     end
     let(:iam_role) { double("IamRole", arn: "arn:aws:iam::123:role/test") }
 
