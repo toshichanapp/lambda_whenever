@@ -9,6 +9,10 @@ RSpec.describe LambdaWhenever::Logger do
     it "returns the same instance" do
       expect(described_class.instance).to be(described_class.instance)
     end
+
+    it "prevents direct instantiation" do
+      expect { described_class.new }.to raise_error(NoMethodError)
+    end
   end
 
   describe "#fail" do
