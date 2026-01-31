@@ -70,6 +70,28 @@ RSpec.describe LambdaWhenever::WheneverNumeric do
     it "converts to seconds (365.25 days)" do
       expect(1.year).to eq(31_557_600)
     end
+
+    it "supports plural form" do
+      expect(2.years).to eq(63_115_200)
+    end
+  end
+
+  describe "edge cases" do
+    it "handles zero" do
+      expect(0.seconds).to eq(0)
+      expect(0.hours).to eq(0)
+      expect(0.days).to eq(0)
+    end
+
+    it "handles float values" do
+      expect(1.5.hours).to eq(5400)
+      expect(0.5.days).to eq(43_200)
+    end
+
+    it "handles negative values" do
+      expect(-1.hour).to eq(-3600)
+      expect(-2.days).to eq(-172_800)
+    end
   end
 
   describe "chaining" do
