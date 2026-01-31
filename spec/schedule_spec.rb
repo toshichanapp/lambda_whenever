@@ -2,6 +2,7 @@
 
 require "spec_helper"
 require "lambda_whenever/whenever_numeric"
+require "tempfile"
 
 RSpec.describe LambdaWhenever::Schedule do
   using LambdaWhenever::WheneverNumeric
@@ -164,16 +165,28 @@ RSpec.describe LambdaWhenever::Schedule do
   end
 
   describe "#set" do
-    it "sets value" do
+    it "sets allowed key value" do
       expect do
-        schedule.set("foo", "bar")
-      end.to change { schedule.instance_variable_get("@foo") }.from(nil).to("bar")
+        schedule.set("environment", "staging")
+      end.to change { schedule.instance_variable_get("@environment") }.from("production").to("staging")
     end
 
     it "does not set `tasks` value" do
       expect do
         schedule.set("tasks", "some value")
       end.not_to(change { schedule.tasks })
+    end
+
+    it "sets non-standard key with warning" do
+      logger = LambdaWhenever::Logger.instance
+      expect(logger).to receive(:warn).with(/non-standard key/)
+      schedule.set("foo", "bar")
+      expect(schedule.instance_variable_get("@foo")).to eq("bar")
+    end
+
+    it "accepts symbol keys" do
+      schedule.set(:environment, "staging")
+      expect(schedule.environment).to eq("staging")
     end
   end
 
@@ -272,11 +285,61 @@ RSpec.describe LambdaWhenever::Schedule do
   end
 
   describe "#print_tasks" do
-    it "prints tasks" do
-      allow(schedule).to receive(:puts)
-      expect(schedule).to receive(:puts).with('cron(0 3 * * ? *) { commands: [["bundle", "exec", "rails", "runner", "-e", "production", "Hoge.run"]] }')
-      expect(schedule).to receive(:puts).with('cron(0 0 1 * ? *) { commands: [["bundle", "exec", "rake", "hoge:run", "--silent"], ["bundle", "exec", "rails", "runner", "-e", "production", "Fuga.run"]] }')
+    it "prints tasks via Logger" do
+      logger = LambdaWhenever::Logger.instance
+      expect(logger).to receive(:message).with('cron(0 3 * * ? *) { commands: [["bundle", "exec", "rails", "runner", "-e", "production", "Hoge.run"]] }')
+      expect(logger).to receive(:message).with('cron(0 0 1 * ? *) { commands: [["bundle", "exec", "rake", "hoge:run", "--silent"], ["bundle", "exec", "rails", "runner", "-e", "production", "Fuga.run"]] }')
       schedule.print_tasks
+    end
+  end
+
+  describe "#set security" do
+    it "rejects reserved key 'tasks'" do
+      original_tasks = schedule.tasks
+      schedule.set("tasks", "malicious")
+      expect(schedule.tasks).to eq(original_tasks)
+    end
+
+    it "rejects reserved key 'verbose'" do
+      schedule.set("verbose", true)
+      expect(schedule.instance_variable_get(:@verbose)).to be false
+    end
+
+    it "warns about non-standard keys" do
+      logger = LambdaWhenever::Logger.instance
+      expect(logger).to receive(:warn).with(/non-standard key/)
+      schedule.set("custom_key", "value")
+    end
+
+    it "allows standard keys without warning" do
+      logger = LambdaWhenever::Logger.instance
+      expect(logger).not_to receive(:warn)
+      schedule.set("environment", "staging")
+      expect(schedule.environment).to eq("staging")
+    end
+  end
+
+  describe "file validation" do
+    it "raises error for non-existent file" do
+      expect do
+        LambdaWhenever::Schedule.new("/nonexistent/file.rb", false, [])
+      end.to raise_error(ArgumentError, /does not exist/)
+    end
+
+    it "raises error for non-.rb file" do
+      Tempfile.create(["schedule", ".txt"]) do |tmpfile|
+        expect do
+          LambdaWhenever::Schedule.new(tmpfile.path, false, [])
+        end.to raise_error(ArgumentError, /must have .rb extension/)
+      end
+    end
+
+    it "raises error for directory path with .rb extension" do
+      Dir.mktmpdir("schedule.rb") do |dir|
+        expect do
+          LambdaWhenever::Schedule.new(dir, false, [])
+        end.to raise_error(ArgumentError, /must be a regular file/)
+      end
     end
   end
 end
