@@ -480,5 +480,33 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
         end.to raise_error(Aws::Scheduler::Errors::ConflictException)
       end
     end
+
+    context "IamRole caching across multiple operations" do
+      it "creates IamRole only once for multiple create and update calls" do
+        task1 = double("Task1", name: "task1", expression: "cron(0 0 * * ? *)", commands: [%w[rake run1]])
+        task2 = double("Task2", name: "task2", expression: "cron(0 12 * * ? *)", commands: [%w[rake run2]])
+        task3 = double("Task3", name: "task3", expression: "cron(0 18 * * ? *)", commands: [%w[rake run3]])
+        target1 = double("Target1", task: task1, arn: "arn1", input: "{}")
+        target2 = double("Target2", task: task2, arn: "arn2", input: "{}")
+        target3 = double("Target3", task: task3, arn: "arn3", input: "{}")
+
+        desired = [
+          { name: "task1-hash1", target: target1 },
+          { name: "task2-hash2", target: target2 },
+          { name: "task3-hash3", target: target3 }
+        ]
+        current = [
+          { name: "task2-hash2", expression: "cron(0 0 * * ? *)",
+            description: task2.commands.to_s, state: "ENABLED" }
+        ]
+
+        allow(scheduler_client).to receive(:create_schedule)
+        allow(scheduler_client).to receive(:update_schedule)
+
+        expect(LambdaWhenever::IamRole).to receive(:new).once.and_return(iam_role)
+
+        scheduler.sync_schedules(desired, current, option)
+      end
+    end
   end
 end
