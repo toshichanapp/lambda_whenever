@@ -414,5 +414,71 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
         end.not_to raise_error
       end
     end
+
+    context "when an existing schedule differs" do
+      it "calls update_schedule instead of delete+create" do
+        task = double("Task", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run]])
+        target = double("Target", task: task, arn: "arn1", input: "{}")
+
+        desired = [{ name: "task1-hash1", target: target }]
+        current = [{ name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+                     description: task.commands.to_s, state: "ENABLED" }]
+
+        expect(scheduler_client).to receive(:update_schedule).once
+        expect(scheduler_client).not_to receive(:create_schedule)
+        expect(scheduler_client).not_to receive(:delete_schedule)
+
+        scheduler.sync_schedules(desired, current, option)
+      end
+    end
+
+    context "when update_schedule fails with a non-ConflictException" do
+      it "collects errors, continues processing, and raises after all attempts" do
+        task1 = double("Task1", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run1]])
+        task2 = double("Task2", name: "task2", expression: "cron(0 18 * * ? *)", commands: [%w[rake run2]])
+        target1 = double("Target1", task: task1, arn: "arn1", input: "{}")
+        target2 = double("Target2", task: task2, arn: "arn2", input: "{}")
+
+        desired = [
+          { name: "task1-hash1", target: target1 },
+          { name: "task2-hash2", target: target2 }
+        ]
+        current = [
+          { name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+            description: task1.commands.to_s, state: "ENABLED" },
+          { name: "task2-hash2", expression: "cron(0 0 * * ? *)",
+            description: task2.commands.to_s, state: "ENABLED" }
+        ]
+
+        call_count = 0
+        allow(scheduler_client).to receive(:update_schedule) do
+          call_count += 1
+          raise Aws::Scheduler::Errors::ValidationException.new(nil, "Invalid") if call_count == 1
+        end
+
+        expect do
+          scheduler.sync_schedules(desired, current, option)
+        end.to raise_error(Aws::Scheduler::Errors::ValidationException)
+        expect(call_count).to eq(2)
+      end
+    end
+
+    context "when update_schedule fails with ConflictException" do
+      it "immediately re-raises for CLI retry handler" do
+        task = double("Task", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run]])
+        target = double("Target", task: task, arn: "arn1", input: "{}")
+
+        desired = [{ name: "task1-hash1", target: target }]
+        current = [{ name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+                     description: task.commands.to_s, state: "ENABLED" }]
+
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "Concurrent modification"))
+
+        expect do
+          scheduler.sync_schedules(desired, current, option)
+        end.to raise_error(Aws::Scheduler::Errors::ConflictException)
+      end
+    end
   end
 end
