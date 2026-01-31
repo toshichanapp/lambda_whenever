@@ -96,47 +96,11 @@ module LambdaWhenever
 
     # https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/Scheduler/Client.html#create_schedule-instance_method
     def create_schedule(target, option)
-      task = target.task
-      name = schedule_name(task, option)
-      @scheduler_client.create_schedule({
-                                          name: name,
-                                          schedule_expression: task.expression,
-                                          schedule_expression_timezone: timezone,
-                                          flexible_time_window: FLEXIBLE_TIME_WINDOW,
-                                          target: {
-                                            arn: target.arn,
-                                            role_arn: IamRole.new(option).arn,
-                                            input: target.input
-                                          },
-                                          group_name: option.scheduler_group,
-                                          state: option.rule_state,
-                                          description: schedule_description(task)
-                                        })
-    rescue Aws::Scheduler::Errors::ValidationException => e
-      Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
-      raise
+      upsert_schedule(:create_schedule, target, option)
     end
 
     def update_schedule(target, option)
-      task = target.task
-      name = schedule_name(task, option)
-      @scheduler_client.update_schedule({
-                                          name: name,
-                                          schedule_expression: task.expression,
-                                          schedule_expression_timezone: timezone,
-                                          flexible_time_window: FLEXIBLE_TIME_WINDOW,
-                                          target: {
-                                            arn: target.arn,
-                                            role_arn: IamRole.new(option).arn,
-                                            input: target.input
-                                          },
-                                          group_name: option.scheduler_group,
-                                          state: option.rule_state,
-                                          description: schedule_description(task)
-                                        })
-    rescue Aws::Scheduler::Errors::ValidationException => e
-      Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
-      raise
+      upsert_schedule(:update_schedule, target, option)
     end
 
     def schedule_name(task, option)
@@ -189,6 +153,28 @@ module LambdaWhenever
       current[:expression] != task.expression ||
         current[:description] != schedule_description(task) ||
         current[:state] != option.rule_state
+    end
+
+    def upsert_schedule(api_method, target, option)
+      task = target.task
+      name = schedule_name(task, option)
+      @scheduler_client.public_send(api_method, {
+                                      name: name,
+                                      schedule_expression: task.expression,
+                                      schedule_expression_timezone: timezone,
+                                      flexible_time_window: FLEXIBLE_TIME_WINDOW,
+                                      target: {
+                                        arn: target.arn,
+                                        role_arn: IamRole.new(option).arn,
+                                        input: target.input
+                                      },
+                                      group_name: option.scheduler_group,
+                                      state: option.rule_state,
+                                      description: schedule_description(task)
+                                    })
+    rescue Aws::Scheduler::Errors::ValidationException => e
+      Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
+      raise
     end
 
     def delete_schedule(name, group_name)
