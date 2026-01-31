@@ -3,6 +3,13 @@
 module LambdaWhenever
   # The EventBridgeScheduler class is responsible for managing schedules in AWS EventBridge.
   class EventBridgeScheduler
+    # SHA1 hex digest is 40 chars, separator is 1 char, so prefix max is 64 - 41 = 23 chars.
+    # Prefix may be truncated mid-word; multibyte characters are sanitized to underscores.
+    SCHEDULE_NAME_MAX_LENGTH = 64
+    SHA1_HEX_LENGTH = 40
+    PREFIX_MAX_LENGTH = SCHEDULE_NAME_MAX_LENGTH - SHA1_HEX_LENGTH - 1
+    DEFAULT_SCHEDULE_PREFIX = "task"
+
     attr_reader :timezone
 
     def initialize(client, timezone = "UTC")
@@ -91,15 +98,6 @@ module LambdaWhenever
                                         })
     end
 
-    def schedule_name(task, option)
-      input = "#{task.name}-#{Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))}"
-      sanitize_and_trim(input)
-    end
-
-    def schedule_description(task)
-      task.commands.to_s
-    end
-
     def clean_up_schedules(schedule_group)
       response = @scheduler_client.list_schedules({ group_name: schedule_group })
       response.schedules.each do |schedule|
@@ -109,9 +107,19 @@ module LambdaWhenever
 
     private
 
-    def sanitize_and_trim(input)
-      sanitized = input.gsub(/[^a-zA-Z0-9\-._]/, "_")
-      sanitized[0, 64]
+    def schedule_name(task, option)
+      hash = Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))
+      raw_prefix = task.name.to_s.empty? ? DEFAULT_SCHEDULE_PREFIX : task.name
+      prefix = sanitize(raw_prefix)[0, PREFIX_MAX_LENGTH]
+      "#{prefix}-#{hash}"
+    end
+
+    def schedule_description(task)
+      task.commands.to_s
+    end
+
+    def sanitize(input)
+      input.gsub(/[^a-zA-Z0-9\-._]/, "_")
     end
 
     def schedules_differ?(current, desired, option)
