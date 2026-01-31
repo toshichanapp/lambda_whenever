@@ -9,14 +9,14 @@ module LambdaWhenever
     def initialize(environment, verbose, bundle_command, expression)
       @environment = environment
       @verbose_mode = verbose ? nil : "--silent"
-      @bundle_command = Shellwords.split(bundle_command)
+      @bundle_command = safe_shellwords_split(bundle_command)
       @expression = expression
       @commands = []
       @name = ""
     end
 
     def command(task)
-      @commands << Shellwords.split(task)
+      @commands << safe_shellwords_split(task)
     end
 
     def rake(task)
@@ -40,6 +40,14 @@ module LambdaWhenever
 
     def respond_to_missing?(_name, _include_private = false)
       true
+    end
+
+    private
+
+    def safe_shellwords_split(str)
+      Shellwords.split(str)
+    rescue ArgumentError => e
+      raise ArgumentError, "Invalid command syntax: #{str.inspect} (#{e.message})"
     end
   end
 end
