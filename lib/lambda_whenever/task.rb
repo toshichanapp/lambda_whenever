@@ -38,8 +38,8 @@ module LambdaWhenever
       Logger.instance.warn("Skipping unsupported method: #{name}")
     end
 
-    def respond_to_missing?(_name, _include_private = false)
-      true
+    def respond_to_missing?(name, include_private = false)
+      super
     end
 
     private
