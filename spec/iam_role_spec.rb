@@ -28,6 +28,15 @@ RSpec.describe LambdaWhenever::IamRole do
     end
   end
 
+  describe "#arn caching" do
+    it "caches the ARN after first call" do
+      iam_role = LambdaWhenever::IamRole.new(option)
+      expect(role).to receive(:arn).once.and_return("arn:aws:iam::123456789:role/ecsEventsRole")
+      iam_role.arn
+      iam_role.arn
+    end
+  end
+
   describe "#exists?" do
     it "returns true" do
       expect(LambdaWhenever::IamRole.new(option)).to be_exists

@@ -19,6 +19,7 @@ module LambdaWhenever
     def initialize(client, timezone = "UTC")
       @scheduler_client = client
       @timezone = timezone
+      @iam_roles = {}
     end
 
     # NOTE: Calls get_schedule per entry because the ListSchedules API does not return
@@ -76,8 +77,7 @@ module LambdaWhenever
       Logger.instance.message("Updating #{to_update.length} schedules...")
       to_update.each do |desired|
         Logger.instance.message("Updating schedule: #{desired[:name]}")
-        delete_schedule(desired[:name], option.scheduler_group)
-        create_schedule(desired[:target], option)
+        update_schedule(desired[:target], option)
       rescue Aws::Scheduler::Errors::ConflictException
         raise
       rescue Aws::Scheduler::Errors::ServiceError => e
@@ -97,25 +97,11 @@ module LambdaWhenever
 
     # https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/Scheduler/Client.html#create_schedule-instance_method
     def create_schedule(target, option)
-      task = target.task
-      name = schedule_name(task, option)
-      @scheduler_client.create_schedule({
-                                          name: name,
-                                          schedule_expression: task.expression,
-                                          schedule_expression_timezone: timezone,
-                                          flexible_time_window: FLEXIBLE_TIME_WINDOW,
-                                          target: {
-                                            arn: target.arn,
-                                            role_arn: IamRole.new(option).arn,
-                                            input: target.input
-                                          },
-                                          group_name: option.scheduler_group,
-                                          state: option.rule_state,
-                                          description: schedule_description(task)
-                                        })
-    rescue Aws::Scheduler::Errors::ValidationException => e
-      Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
-      raise
+      upsert_schedule(:create_schedule, target, option)
+    end
+
+    def update_schedule(target, option)
+      upsert_schedule(:update_schedule, target, option)
     end
 
     def schedule_name(task, option)
@@ -168,6 +154,33 @@ module LambdaWhenever
       current[:expression] != task.expression ||
         current[:description] != schedule_description(task) ||
         current[:state] != option.rule_state
+    end
+
+    def upsert_schedule(api_method, target, option)
+      task = target.task
+      name = schedule_name(task, option)
+      @scheduler_client.public_send(api_method, {
+                                      name: name,
+                                      schedule_expression: task.expression,
+                                      schedule_expression_timezone: timezone,
+                                      flexible_time_window: FLEXIBLE_TIME_WINDOW,
+                                      target: {
+                                        arn: target.arn,
+                                        role_arn: iam_role_arn(option),
+                                        input: target.input
+                                      },
+                                      group_name: option.scheduler_group,
+                                      state: option.rule_state,
+                                      description: schedule_description(task)
+                                    })
+    rescue Aws::Scheduler::Errors::ValidationException => e
+      Logger.instance.fail("Invalid schedule parameters for '#{name}': #{e.message}.")
+      raise
+    end
+
+    def iam_role_arn(option)
+      @iam_roles[option.iam_role] ||= IamRole.new(option)
+      @iam_roles[option.iam_role].arn
     end
 
     def delete_schedule(name, group_name)

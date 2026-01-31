@@ -164,7 +164,7 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
   describe "#create_schedule" do
     let(:option) do
-      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED")
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
     end
     let(:task) { double("Task", name: "my_task", expression: "cron(0 0 * * ? *)", commands: [%w[rake run]]) }
     let(:target) { double("TargetLambda", task: task, arn: "arn:aws:lambda:us-east-1:123:function:test", input: "{}") }
@@ -212,6 +212,61 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
         expect do
           scheduler.create_schedule(target, option)
+        end.to raise_error(Aws::Scheduler::Errors::ConflictException)
+      end
+    end
+  end
+
+  describe "#update_schedule" do
+    let(:option) do
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
+    end
+    let(:task) { double("Task", name: "my_task", expression: "cron(0 0 * * ? *)", commands: [%w[rake run]]) }
+    let(:target) { double("TargetLambda", task: task, arn: "arn:aws:lambda:us-east-1:123:function:test", input: "{}") }
+    let(:iam_role) { double("IamRole", arn: "arn:aws:iam::123:role/test") }
+
+    before do
+      allow(LambdaWhenever::IamRole).to receive(:new).and_return(iam_role)
+    end
+
+    context "when the API call succeeds" do
+      it "updates a schedule with correct parameters" do
+        expect(scheduler_client).to receive(:update_schedule).with(hash_including(
+                                                                     name: anything,
+                                                                     schedule_expression: "cron(0 0 * * ? *)",
+                                                                     schedule_expression_timezone: "UTC",
+                                                                     flexible_time_window: described_class::FLEXIBLE_TIME_WINDOW,
+                                                                     group_name: "test-group",
+                                                                     state: "ENABLED"
+                                                                   ))
+
+        scheduler.update_schedule(target, option)
+      end
+    end
+
+    context "when ValidationException is raised" do
+      it "logs the error and re-raises" do
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ValidationException.new(nil, "Invalid cron expression"))
+
+        expect(LambdaWhenever::Logger.instance).to receive(:fail)
+          .with(/Invalid schedule parameters.*Invalid cron expression/)
+
+        expect do
+          scheduler.update_schedule(target, option)
+        end.to raise_error(Aws::Scheduler::Errors::ValidationException)
+      end
+    end
+
+    context "when ConflictException is raised" do
+      it "does not catch the error (lets it bubble to CLI retry handler)" do
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "Concurrent modification"))
+
+        expect(LambdaWhenever::Logger.instance).not_to receive(:fail)
+
+        expect do
+          scheduler.update_schedule(target, option)
         end.to raise_error(Aws::Scheduler::Errors::ConflictException)
       end
     end
@@ -293,7 +348,7 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
   describe "#sync_schedules" do
     let(:option) do
-      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED")
+      double("Option", key: "test-key", scheduler_group: "test-group", rule_state: "ENABLED", iam_role: "test-role")
     end
     let(:iam_role) { double("IamRole", arn: "arn:aws:iam::123:role/test") }
 
@@ -357,6 +412,100 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
         expect do
           scheduler.sync_schedules(desired, current, option)
         end.not_to raise_error
+      end
+    end
+
+    context "when an existing schedule differs" do
+      it "calls update_schedule instead of delete+create" do
+        task = double("Task", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run]])
+        target = double("Target", task: task, arn: "arn1", input: "{}")
+
+        desired = [{ name: "task1-hash1", target: target }]
+        current = [{ name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+                     description: task.commands.to_s, state: "ENABLED" }]
+
+        expect(scheduler_client).to receive(:update_schedule).once
+        expect(scheduler_client).not_to receive(:create_schedule)
+        expect(scheduler_client).not_to receive(:delete_schedule)
+
+        scheduler.sync_schedules(desired, current, option)
+      end
+    end
+
+    context "when update_schedule fails with a non-ConflictException" do
+      it "collects errors, continues processing, and raises after all attempts" do
+        task1 = double("Task1", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run1]])
+        task2 = double("Task2", name: "task2", expression: "cron(0 18 * * ? *)", commands: [%w[rake run2]])
+        target1 = double("Target1", task: task1, arn: "arn1", input: "{}")
+        target2 = double("Target2", task: task2, arn: "arn2", input: "{}")
+
+        desired = [
+          { name: "task1-hash1", target: target1 },
+          { name: "task2-hash2", target: target2 }
+        ]
+        current = [
+          { name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+            description: task1.commands.to_s, state: "ENABLED" },
+          { name: "task2-hash2", expression: "cron(0 0 * * ? *)",
+            description: task2.commands.to_s, state: "ENABLED" }
+        ]
+
+        call_count = 0
+        allow(scheduler_client).to receive(:update_schedule) do
+          call_count += 1
+          raise Aws::Scheduler::Errors::ValidationException.new(nil, "Invalid") if call_count == 1
+        end
+
+        expect do
+          scheduler.sync_schedules(desired, current, option)
+        end.to raise_error(Aws::Scheduler::Errors::ValidationException)
+        expect(call_count).to eq(2)
+      end
+    end
+
+    context "when update_schedule fails with ConflictException" do
+      it "immediately re-raises for CLI retry handler" do
+        task = double("Task", name: "task1", expression: "cron(0 12 * * ? *)", commands: [%w[rake run]])
+        target = double("Target", task: task, arn: "arn1", input: "{}")
+
+        desired = [{ name: "task1-hash1", target: target }]
+        current = [{ name: "task1-hash1", expression: "cron(0 0 * * ? *)",
+                     description: task.commands.to_s, state: "ENABLED" }]
+
+        allow(scheduler_client).to receive(:update_schedule)
+          .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "Concurrent modification"))
+
+        expect do
+          scheduler.sync_schedules(desired, current, option)
+        end.to raise_error(Aws::Scheduler::Errors::ConflictException)
+      end
+    end
+
+    context "IamRole caching across multiple operations" do
+      it "creates IamRole only once for multiple create and update calls" do
+        task1 = double("Task1", name: "task1", expression: "cron(0 0 * * ? *)", commands: [%w[rake run1]])
+        task2 = double("Task2", name: "task2", expression: "cron(0 12 * * ? *)", commands: [%w[rake run2]])
+        task3 = double("Task3", name: "task3", expression: "cron(0 18 * * ? *)", commands: [%w[rake run3]])
+        target1 = double("Target1", task: task1, arn: "arn1", input: "{}")
+        target2 = double("Target2", task: task2, arn: "arn2", input: "{}")
+        target3 = double("Target3", task: task3, arn: "arn3", input: "{}")
+
+        desired = [
+          { name: "task1-hash1", target: target1 },
+          { name: "task2-hash2", target: target2 },
+          { name: "task3-hash3", target: target3 }
+        ]
+        current = [
+          { name: "task2-hash2", expression: "cron(0 0 * * ? *)",
+            description: task2.commands.to_s, state: "ENABLED" }
+        ]
+
+        allow(scheduler_client).to receive(:create_schedule)
+        allow(scheduler_client).to receive(:update_schedule)
+
+        expect(LambdaWhenever::IamRole).to receive(:new).once.and_return(iam_role)
+
+        scheduler.sync_schedules(desired, current, option)
       end
     end
   end
