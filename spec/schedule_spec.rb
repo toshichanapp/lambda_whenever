@@ -4,7 +4,7 @@ require "spec_helper"
 require "lambda_whenever/whenever_numeric"
 
 RSpec.describe LambdaWhenever::Schedule do
-  using WheneverNumeric
+  using LambdaWhenever::WheneverNumeric
   let(:schedule) { LambdaWhenever::Schedule.new(Pathname(__dir__).join("fixtures/schedule.rb").to_s, false, []) }
 
   describe "#initialize" do
