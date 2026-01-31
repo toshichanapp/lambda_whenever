@@ -7,6 +7,23 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
   let(:scheduler_client) { double("Aws::Scheduler::Client") }
   let(:scheduler) { described_class.new(scheduler_client) }
 
+  describe "#initialize" do
+    it "sets timezone" do
+      scheduler = described_class.new(scheduler_client, "Asia/Tokyo")
+      expect(scheduler.timezone).to eq("Asia/Tokyo")
+    end
+
+    it "defaults timezone to UTC" do
+      scheduler = described_class.new(scheduler_client)
+      expect(scheduler.timezone).to eq("UTC")
+    end
+
+    it "initializes iam_roles cache as empty hash" do
+      scheduler = described_class.new(scheduler_client)
+      expect(scheduler.instance_variable_get(:@iam_roles)).to eq({})
+    end
+  end
+
   describe "#schedule_name" do
     let(:option) { double("Option", key: "test-key") }
 
@@ -159,6 +176,21 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
         expect { fetch_all_schedules("test-group") }
           .to raise_error(RuntimeError, /Exceeded maximum pagination pages/)
       end
+    end
+  end
+
+  describe "#create_schedule_group" do
+    it "creates a schedule group and logs success" do
+      expect(scheduler_client).to receive(:create_schedule_group).with({ name: "test-group" })
+      expect(LambdaWhenever::Logger.instance).to receive(:message).with("Schedule group 'test-group' created.")
+      scheduler.create_schedule_group("test-group")
+    end
+
+    it "handles existing group gracefully and logs message" do
+      allow(scheduler_client).to receive(:create_schedule_group)
+        .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "conflict"))
+      expect(LambdaWhenever::Logger.instance).to receive(:message).with("Schedule group 'test-group' already exists.")
+      expect { scheduler.create_schedule_group("test-group") }.not_to raise_error
     end
   end
 
@@ -507,6 +539,109 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
 
         scheduler.sync_schedules(desired, current, option)
       end
+    end
+  end
+
+  describe "#sanitize (private)" do
+    def sanitize(input)
+      scheduler.send(:sanitize, input)
+    end
+
+    it "preserves alphanumeric characters" do
+      expect(sanitize("task123")).to eq("task123")
+    end
+
+    it "preserves hyphens, dots, and underscores" do
+      expect(sanitize("task-name_v1.0")).to eq("task-name_v1.0")
+    end
+
+    it "replaces spaces with underscores" do
+      expect(sanitize("my task")).to eq("my_task")
+    end
+
+    it "replaces special characters with underscores" do
+      expect(sanitize("task@v2!#$%")).to eq("task_v2____")
+    end
+
+    it "replaces multibyte characters with underscores" do
+      expect(sanitize("タスク")).to eq("___")
+    end
+
+    it "returns empty string for empty input" do
+      expect(sanitize("")).to eq("")
+    end
+  end
+
+  describe "#schedule_description (private)" do
+    def schedule_description(task)
+      scheduler.send(:schedule_description, task)
+    end
+
+    it "converts task commands to string representation" do
+      task = double("Task", commands: [%w[bundle exec rake test]])
+      expect(schedule_description(task)).to eq('[["bundle", "exec", "rake", "test"]]')
+    end
+
+    it "handles multiple commands" do
+      task = double("Task", commands: [%w[rake run], %w[echo done]])
+      expect(schedule_description(task)).to eq('[["rake", "run"], ["echo", "done"]]')
+    end
+
+    it "handles empty commands" do
+      task = double("Task", commands: [])
+      expect(schedule_description(task)).to eq("[]")
+    end
+  end
+
+  describe "#schedules_differ? (private)" do
+    def schedules_differ?(current, desired, option)
+      scheduler.send(:schedules_differ?, current, desired, option)
+    end
+
+    let(:option) { double("Option", rule_state: "ENABLED") }
+    let(:task) { double("Task", expression: "cron(0 0 * * ? *)", commands: [%w[rake run]]) }
+    let(:target) { double("Target", task: task) }
+    let(:matching_current) do
+      { expression: "cron(0 0 * * ? *)", description: '[["rake", "run"]]', state: "ENABLED" }
+    end
+
+    it "returns false when all fields match" do
+      expect(schedules_differ?(matching_current, { target: target }, option)).to be false
+    end
+
+    it "returns true when expression differs" do
+      current = matching_current.merge(expression: "cron(0 12 * * ? *)")
+      expect(schedules_differ?(current, { target: target }, option)).to be true
+    end
+
+    it "returns true when description differs" do
+      current = matching_current.merge(description: "different")
+      expect(schedules_differ?(current, { target: target }, option)).to be true
+    end
+
+    it "returns true when state differs" do
+      current = matching_current.merge(state: "DISABLED")
+      expect(schedules_differ?(current, { target: target }, option)).to be true
+    end
+  end
+
+  describe "#delete_schedule (private)" do
+    def delete_schedule(name, group_name)
+      scheduler.send(:delete_schedule, name, group_name)
+    end
+
+    it "deletes a schedule" do
+      expect(scheduler_client).to receive(:delete_schedule)
+        .with({ name: "sched1", group_name: "test-group" })
+      delete_schedule("sched1", "test-group")
+    end
+
+    it "handles ResourceNotFoundException gracefully" do
+      allow(scheduler_client).to receive(:delete_schedule)
+        .and_raise(Aws::Scheduler::Errors::ResourceNotFoundException.new(nil, "not found"))
+      expect(LambdaWhenever::Logger.instance).to receive(:message)
+        .with("Schedule 'sched1' does not exist.")
+      expect { delete_schedule("sched1", "test-group") }.not_to raise_error
     end
   end
 end

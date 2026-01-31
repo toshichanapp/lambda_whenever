@@ -25,7 +25,8 @@ You can use it almost like Whenever. However, please note that you must specify 
 $ lambda_whenever --help
 Usage: lambda_whenever [options]
         --dryrun                     dry-run
-        --update                     Creates and deletes tasks as needed by schedule file
+        --update                     Clear all and recreate schedules
+        --sync                       Intelligently add, update, and delete schedules
     -c, --clear                      Clear scheduled tasks
     -l, --list                       List scheduled tasks
     -v, --version                    Print version
@@ -38,6 +39,19 @@ Usage: lambda_whenever [options]
         --region region              AWS region
     -V, --verbose                    Run rake jobs without --silent
 ```
+
+### Modes
+
+| Mode    | Flag              | Description                                                        |
+|---------|-------------------|--------------------------------------------------------------------|
+| Dryrun  | `--dryrun`        | Preview schedules without making changes (default)                 |
+| Update  | `--update`        | **Destructive**: deletes all existing schedules and recreates them |
+| Sync    | `--sync`          | Intelligent sync: adds new, updates changed, deletes removed       |
+| Clear   | `-c, --clear`     | Delete all scheduled tasks                                         |
+| List    | `-l, --list`      | Show all current schedules                                         |
+| Version | `-v, --version`   | Print gem version                                                  |
+
+> **Note:** `--update` deletes all existing schedules first, then recreates them. If schedule creation fails mid-operation, you may end up with fewer schedules than expected. `--sync` performs intelligent diff-based updates, modifying only what has changed, but does not provide automatic rollback on failure.
 
 ### Setting Variables
 
