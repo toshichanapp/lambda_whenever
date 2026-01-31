@@ -21,6 +21,10 @@ RSpec.describe LambdaWhenever::Task do
       task.command("echo 'hello world' --flag")
       expect(task.commands).to eq([["echo", "hello world", "--flag"]])
     end
+
+    it "raises ArgumentError for unclosed quotes" do
+      expect { task.command("echo 'hello") }.to raise_error(ArgumentError, /Invalid command syntax/)
+    end
   end
 
   describe "#rake" do
@@ -77,6 +81,17 @@ RSpec.describe LambdaWhenever::Task do
         task.script("runner.rb")
         expect(task.commands).to eq([%w[script/runner.rb]])
       end
+    end
+  end
+
+  describe "#initialize with quoted bundle_command" do
+    let(:task) do
+      LambdaWhenever::Task.new("production", false, "bundle exec --path 'my gems'", "cron(0 17 * * ? *)")
+    end
+
+    it "parses quoted bundle_command arguments" do
+      task.rake("hoge:run")
+      expect(task.commands).to eq([["bundle", "exec", "--path", "my gems", "rake", "hoge:run", "--silent"]])
     end
   end
 

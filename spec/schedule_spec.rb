@@ -183,6 +183,11 @@ RSpec.describe LambdaWhenever::Schedule do
       schedule.set("foo", "bar")
       expect(schedule.instance_variable_get("@foo")).to eq("bar")
     end
+
+    it "accepts symbol keys" do
+      schedule.set(:environment, "staging")
+      expect(schedule.environment).to eq("staging")
+    end
   end
 
   describe "#schedule_expressions" do
@@ -322,11 +327,19 @@ RSpec.describe LambdaWhenever::Schedule do
     end
 
     it "raises error for non-.rb file" do
-      tmpfile = Tempfile.new(["schedule", ".txt"])
-      expect do
-        LambdaWhenever::Schedule.new(tmpfile.path, false, [])
-      end.to raise_error(ArgumentError, /must have .rb extension/)
-      tmpfile.unlink
+      Tempfile.create(["schedule", ".txt"]) do |tmpfile|
+        expect do
+          LambdaWhenever::Schedule.new(tmpfile.path, false, [])
+        end.to raise_error(ArgumentError, /must have .rb extension/)
+      end
+    end
+
+    it "raises error for directory path with .rb extension" do
+      Dir.mktmpdir("schedule.rb") do |dir|
+        expect do
+          LambdaWhenever::Schedule.new(dir, false, [])
+        end.to raise_error(ArgumentError, /must be a regular file/)
+      end
     end
   end
 end

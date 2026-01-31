@@ -93,7 +93,7 @@ module LambdaWhenever
     end
 
     def aws_config
-      @aws_config ||= { region: region }.delete_if { |_k, v| v.nil? }
+      @aws_config ||= { region: region }.compact
     end
 
     def iam_client

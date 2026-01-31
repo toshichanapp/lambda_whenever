@@ -32,9 +32,7 @@ module LambdaWhenever
         Logger.instance.warn("Cannot overwrite reserved key '#{key}' via set")
         return
       end
-      unless ALLOWED_SET_KEYS.include?(key)
-        Logger.instance.warn("Setting non-standard key '#{key}'; consider using an ALLOWED key: #{ALLOWED_SET_KEYS.join(", ")}")
-      end
+      Logger.instance.warn("Setting non-standard key '#{key}'. Allowed: #{ALLOWED_SET_KEYS.join(", ")}") unless ALLOWED_SET_KEYS.include?(key)
       instance_variable_set("@#{key}", value)
     end
 
@@ -152,6 +150,7 @@ module LambdaWhenever
     def validate_file!(file)
       path = File.expand_path(file)
       raise ArgumentError, "Schedule file does not exist: #{file}" unless File.exist?(path)
+      raise ArgumentError, "Schedule file must be a regular file: #{file}" unless File.file?(path)
       raise ArgumentError, "Schedule file must have .rb extension: #{file}" unless path.end_with?(".rb")
     end
 
