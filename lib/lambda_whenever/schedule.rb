@@ -8,7 +8,7 @@ module LambdaWhenever
 
     class UnsupportedFrequencyException < StandardError; end
 
-    using WheneverNumeric
+    using LambdaWhenever::WheneverNumeric
 
     def initialize(file, verbose, variables)
       @environment = "production"
@@ -137,6 +137,10 @@ module LambdaWhenever
 
     def method_missing(name, *_args)
       Logger.instance.warn("Skipping unsupported method: #{name}")
+    end
+
+    def respond_to_missing?(_name, _include_private = false)
+      true
     end
   end
 end
