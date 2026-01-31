@@ -25,7 +25,7 @@ module LambdaWhenever
       @iam_role = nil
       @rule_state = "ENABLED"
       @lambda_name = nil
-      @scheduler_group = "lambda-whenever-dev-group"
+      @scheduler_group = "lambda-whenever-schedules"
       @region = nil
 
       OptionParser.new do |opts|
@@ -93,7 +93,7 @@ module LambdaWhenever
     end
 
     def aws_config
-      @aws_config ||= { region: region }.delete_if { |_k, v| v.nil? }
+      @aws_config ||= { region: region }.compact
     end
 
     def iam_client
@@ -109,14 +109,15 @@ module LambdaWhenever
     end
 
     def key
+      serialized = variables.map { |v| "#{v[:key]}=#{v[:value]}" }.sort.join("&")
       Digest::SHA1.hexdigest(
         [
-          variables,
+          serialized,
           iam_role,
           rule_state,
           lambda_name,
           scheduler_group
-        ].join
+        ].join("\0")
       )
     end
 

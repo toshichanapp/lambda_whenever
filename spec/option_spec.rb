@@ -13,7 +13,7 @@ RSpec.describe LambdaWhenever::Option do
         iam_role: nil,
         rule_state: "ENABLED",
         lambda_name: nil,
-        scheduler_group: "lambda-whenever-dev-group"
+        scheduler_group: "lambda-whenever-schedules"
       )
     end
 

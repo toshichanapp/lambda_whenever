@@ -199,7 +199,7 @@ RSpec.describe LambdaWhenever::Schedule do
       expect(schedule.schedule_expressions(:day, at: ["12:00", "18:00"])).to eq ["cron(00 12,18 * * ? *)"]
     end
 
-    it "handles multiple times in `at` option" do
+    it "handles multiple times with different minutes in `at` option" do
       expect(schedule.schedule_expressions(:day,
                                            at: ["12:00", "18:10"])).to eq ["cron(00 12 * * ? *)", "cron(10 18 * * ? *)"]
     end
@@ -255,7 +255,7 @@ RSpec.describe LambdaWhenever::Schedule do
                          "Time must be in minutes or higher. Ignore this task.")
     end
 
-    it "raises exception for frequencies less than a minute" do
+    it "raises exception for frequencies of 12 months or more" do
       expect do
         schedule.expression_by_frequency(12.months, {})
       end.to raise_error(LambdaWhenever::Schedule::UnsupportedFrequencyException,
