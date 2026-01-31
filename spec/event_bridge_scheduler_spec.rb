@@ -17,6 +17,11 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
       scheduler = described_class.new(scheduler_client)
       expect(scheduler.timezone).to eq("UTC")
     end
+
+    it "initializes iam_roles cache as empty hash" do
+      scheduler = described_class.new(scheduler_client)
+      expect(scheduler.instance_variable_get(:@iam_roles)).to eq({})
+    end
   end
 
   describe "#schedule_name" do
@@ -175,14 +180,16 @@ RSpec.describe LambdaWhenever::EventBridgeScheduler do
   end
 
   describe "#create_schedule_group" do
-    it "creates a schedule group" do
+    it "creates a schedule group and logs success" do
       expect(scheduler_client).to receive(:create_schedule_group).with({ name: "test-group" })
+      expect(LambdaWhenever::Logger.instance).to receive(:message).with("Schedule group 'test-group' created.")
       scheduler.create_schedule_group("test-group")
     end
 
-    it "handles existing group gracefully" do
+    it "handles existing group gracefully and logs message" do
       allow(scheduler_client).to receive(:create_schedule_group)
         .and_raise(Aws::Scheduler::Errors::ConflictException.new(nil, "conflict"))
+      expect(LambdaWhenever::Logger.instance).to receive(:message).with("Schedule group 'test-group' already exists.")
       expect { scheduler.create_schedule_group("test-group") }.not_to raise_error
     end
   end
