@@ -3,6 +3,7 @@
 module LambdaWhenever
   # The EventBridgeScheduler class is responsible for managing schedules in AWS EventBridge.
   class EventBridgeScheduler
+    FLEXIBLE_TIME_WINDOW = { maximum_window_in_minutes: 5, mode: "FLEXIBLE" }.freeze
     # SHA1 hex digest is 40 chars, separator is 1 char, so prefix max is 64 - 41 = 23 chars.
     # Prefix may be truncated mid-word; multibyte characters are sanitized to underscores.
     SCHEDULE_NAME_MAX_LENGTH = 64
@@ -19,8 +20,8 @@ module LambdaWhenever
 
     def list_schedules(group_name)
       Logger.instance.message("Schedules in group '#{group_name}':")
-      response = @scheduler_client.list_schedules({ group_name: group_name })
-      response.schedules.map do |schedule|
+      all_schedules = fetch_all_schedules(group_name)
+      all_schedules.map do |schedule|
         detail = @scheduler_client.get_schedule({ group_name: group_name, name: schedule.name })
         Logger.instance.message "#{schedule.state} #{schedule.name} #{detail.schedule_expression} #{detail.description}"
         {
@@ -79,14 +80,12 @@ module LambdaWhenever
     # https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/Scheduler/Client.html#create_schedule-instance_method
     def create_schedule(target, option)
       task = target.task
+      name = schedule_name(task, option)
       @scheduler_client.create_schedule({
-                                          name: schedule_name(task, option),
+                                          name: name,
                                           schedule_expression: task.expression,
                                           schedule_expression_timezone: timezone,
-                                          flexible_time_window: {
-                                            maximum_window_in_minutes: 5,
-                                            mode: "FLEXIBLE"
-                                          },
+                                          flexible_time_window: FLEXIBLE_TIME_WINDOW,
                                           target: {
                                             arn: target.arn,
                                             role_arn: IamRole.new(option).arn,
@@ -96,16 +95,32 @@ module LambdaWhenever
                                           state: option.rule_state,
                                           description: schedule_description(task)
                                         })
+    rescue Aws::Scheduler::Errors::ServiceError => e
+      Logger.instance.fail("Failed to create schedule '#{name}': #{e.message}")
+      raise
     end
 
     def clean_up_schedules(schedule_group)
-      response = @scheduler_client.list_schedules({ group_name: schedule_group })
-      response.schedules.each do |schedule|
+      fetch_all_schedules(schedule_group).each do |schedule|
         delete_schedule(schedule.name, schedule_group)
       end
     end
 
     private
+
+    def fetch_all_schedules(group_name)
+      all_schedules = []
+      next_token = nil
+      loop do
+        params = { group_name: group_name }
+        params[:next_token] = next_token if next_token
+        response = @scheduler_client.list_schedules(params)
+        all_schedules.concat(response.schedules)
+        next_token = response.next_token
+        break if next_token.nil?
+      end
+      all_schedules
+    end
 
     def schedule_name(task, option)
       hash = Digest::SHA1.hexdigest([option.key, task.expression, *task.commands].join("-"))
