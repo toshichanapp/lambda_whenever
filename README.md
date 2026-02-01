@@ -235,6 +235,14 @@ set :bundle_command, ""
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests.
 You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
+A comprehensive schedule file covering all supported DSL features is available for manual testing:
+
+```bash
+bundle exec lambda_whenever --dryrun -f config/schedule_all_features.rb \
+  --lambda-name test-function \
+  --iam-role arn:aws:iam::123456789012:role/test-role
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at [https://github.com/toshichanapp/lambda_whenever](https://github.com/toshichanapp/lambda_whenever).
